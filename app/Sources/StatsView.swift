@@ -48,7 +48,7 @@ struct StatsView: View {
                     Tile(label: "平均每次", value: visits > 0 ? duration(total / Double(visits)) : "—")
                 }
 
-                HeatmapGrid(period: period, perDay: perDay, selected: $selected, caption: caption(for: selected))
+                HeatmapGrid(period: period, perDay: perDay, selected: $selected, caption: caption(for:))
 
                 VStack(alignment: .leading, spacing: 12) {
                     Picker("", selection: $breakdown) {
@@ -164,8 +164,7 @@ struct Period {
     let end: Date        // last day of the range (Dec 31 for a year)
     let last: Date       // last day counted, never after today
     let gridStart: Date  // Monday of the first column
-    static let weeks = 54  // a year never spans more than 54 weeks; fixed so the grid width never changes
-    var weeks: Int { Self.weeks }
+    let weeks: Int
 
     init(_ range: StatsRange) {
         let cal = Calendar.mondayFirst
@@ -179,11 +178,9 @@ struct Period {
             end = cal.date(from: DateComponents(year: y, month: 12, day: 31))!
         }
         last = min(end, today)
+        gridStart = cal.dateInterval(of: .weekOfYear, for: first)!.start
         let lastMonday = cal.dateInterval(of: .weekOfYear, for: end)!.start
-        switch range {
-        case .pastYear: gridStart = cal.date(byAdding: .day, value: -7 * (Self.weeks - 1), to: lastMonday)!
-        case .year: gridStart = cal.dateInterval(of: .weekOfYear, for: first)!.start
-        }
+        weeks = cal.dateComponents([.day], from: gridStart, to: lastMonday).day! / 7 + 1
     }
 
     func contains(_ date: Date) -> Bool { date >= first && date <= last }
@@ -206,12 +203,15 @@ struct HeatmapGrid: View {
     let period: Period
     let perDay: [String: Double]
     @Binding var selected: Date?
-    let caption: Text
+    let caption: (Date?) -> Text
+    @State private var hovered: Date?
 
-    static let cell: CGFloat = 11
+    static let width: CGFloat = 776
     static let gap: CGFloat = 3
     static let labelWidth: CGFloat = 20
-    static let width = labelWidth + CGFloat(Period.weeks) * (cell + gap)
+
+    /// Cells stretch so the grid always spans the full width, whatever the week count.
+    private var cell: CGFloat { (Self.width - Self.labelWidth - CGFloat(period.weeks) * Self.gap) / CGFloat(period.weeks) }
 
     var body: some View {
         let cal = Calendar.mondayFirst
@@ -226,7 +226,7 @@ struct HeatmapGrid: View {
                 ForEach(0..<period.weeks, id: \.self) { w in
                     Text(months[w] ?? "")
                         .font(.caption2).foregroundStyle(.secondary)
-                        .fixedSize().frame(width: Self.cell, alignment: .leading)
+                        .fixedSize().frame(width: cell, alignment: .leading)
                 }
             }
             HStack(alignment: .top, spacing: Self.gap) {
@@ -234,30 +234,30 @@ struct HeatmapGrid: View {
                     ForEach(0..<7, id: \.self) { d in
                         Text(["一", "", "三", "", "五", "", "日"][d])
                             .font(.caption2).foregroundStyle(.secondary)
-                            .frame(width: Self.labelWidth, height: Self.cell, alignment: .leading)
+                            .frame(width: Self.labelWidth, height: cell, alignment: .leading)
                     }
                 }
                 ForEach(0..<period.weeks, id: \.self) { w in
                     VStack(spacing: Self.gap) {
-                        ForEach(0..<7, id: \.self) { d in cell(columns[w][d]) }
+                        ForEach(0..<7, id: \.self) { d in cellView(columns[w][d]) }
                     }
                 }
             }
+            .overlay(alignment: .topLeading) { tooltip(columns) }
             HStack(spacing: Self.gap) {
-                caption.font(.callout).lineLimit(1)
+                caption(hovered ?? selected).font(.callout).lineLimit(1)
                 Spacer(minLength: 16)
                 Text("少").font(.caption2).foregroundStyle(.secondary)
                 ForEach([0, 1, 1800, 3600, 7200] as [Double], id: \.self) {
-                    RoundedRectangle(cornerRadius: 2).fill(Palette.level($0)).frame(width: Self.cell, height: Self.cell)
+                    RoundedRectangle(cornerRadius: 2).fill(Palette.level($0)).frame(width: 11, height: 11)
                 }
                 Text("多").font(.caption2).foregroundStyle(.secondary)
             }
-            .help("0 ・ 30 分以內 ・ 1 小時以內 ・ 2 小時以內 ・ 2 小時以上")
         }
         .frame(width: Self.width, alignment: .leading)
     }
 
-    @ViewBuilder private func cell(_ date: Date) -> some View {
+    @ViewBuilder private func cellView(_ date: Date) -> some View {
         let inPeriod = period.contains(date)
         let seconds = perDay[Tracker.dayKey.string(from: date)] ?? 0
         RoundedRectangle(cornerRadius: 2)
@@ -267,13 +267,33 @@ struct HeatmapGrid: View {
                     .strokeBorder(Color.primary, lineWidth: 1.5)
                     .opacity(selected == date ? 1 : 0)
             )
-            .frame(width: Self.cell, height: Self.cell)
+            .frame(width: cell, height: cell)
             .contentShape(Rectangle())
+            .onHover { inside in
+                if inside, inPeriod { hovered = date } else if hovered == date { hovered = nil }
+            }
             .onTapGesture {
                 guard inPeriod else { return }
                 selected = selected == date ? nil : date
             }
-            .help(inPeriod ? "\(dayLabel(date))：\(seconds > 0 ? duration(seconds) : "沒去")" : "")
+    }
+
+    /// GitHub-style bubble above the hovered cell.
+    @ViewBuilder private func tooltip(_ columns: [[Date]]) -> some View {
+        if let date = hovered, let w = columns.firstIndex(where: { $0.contains(date) }),
+           let d = columns[w].firstIndex(of: date) {
+            let seconds = perDay[Tracker.dayKey.string(from: date)] ?? 0
+            let text = "\(dayLabel(date))（\(weekday(date))）\(seconds > 0 ? duration(seconds) : "沒去")"
+            let x = Self.labelWidth + Self.gap + CGFloat(w) * (cell + Self.gap) + cell / 2
+            let y = CGFloat(d) * (cell + Self.gap)
+            Text(text)
+                .font(.caption).foregroundStyle(.white).fixedSize()
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Color.black.opacity(0.85)))
+                .alignmentGuide(.leading) { $0.width / 2 - min(max(x, $0.width / 2), Self.width - $0.width / 2) }
+                .alignmentGuide(.top) { $0.height + 6 - y }
+                .allowsHitTesting(false)
+        }
     }
 
     /// Like GitHub: label the first week of each month, skipping labels that would collide.
@@ -360,14 +380,19 @@ struct BarList: View {
                             Text(duration(row.seconds)).foregroundStyle(.secondary).monospacedDigit()
                                 .frame(width: 100, alignment: .trailing)
                         }
-                        .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(selected == row.id ? Color.accentColor.opacity(0.15) : Color.clear))
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(selected == row.id ? Color.accentColor.opacity(0.15) : Color.clear)
+                                .padding(.horizontal, -8)
+                        )
                         .contentShape(Rectangle())
                         .onTapGesture { onTap(row.id) }
                     }
                 }
+                .padding(.horizontal, 8)  // room for the highlight; undone below so rows stay flush
             }
+            .padding(.horizontal, -8)
             .frame(height: min(CGFloat(rows.count) * 26, 182))
         }
     }

@@ -129,8 +129,9 @@ final class MenuController: NSObject, NSMenuDelegate {
             window.center()
             statsWindow = window
         }
-        NSApp.activate(ignoringOtherApps: true)
+        if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
         statsWindow?.makeKeyAndOrderFront(nil)
+        statsWindow?.orderFrontRegardless()
     }
 
     @objc private func installUpdate() { Updater.shared.install() }
