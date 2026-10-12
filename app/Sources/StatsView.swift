@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// "路易莎時光", modeled on GitHub's contribution graph: pick a year on the right,
+/// "連線統計", modeled on GitHub's contribution graph: pick a year on the right,
 /// click a day (or use the arrow keys) to see where you were, and break the time
 /// down by store, month or year. Clicking a store filters everything to it.
 struct StatsView: View {
@@ -34,7 +34,7 @@ struct StatsView: View {
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading, spacing: 22) {
                 HStack(spacing: 10) {
-                    Text("\(store.map { "\($0)：" } ?? "")\(range.heading)在路易莎待了 \(duration(total))")
+                    Text("\(store.map { "\($0)：" } ?? "")\(range.heading)累計連線 \(duration(total))")
                         .font(.title3.weight(.semibold))
                     if store != nil {
                         Button("顯示全部門市") { store = nil }.controlSize(.small)
@@ -42,10 +42,10 @@ struct StatsView: View {
                 }
 
                 HStack(spacing: 12) {
-                    Tile(label: "去了", value: "\(visits) 天")
-                    Tile(label: "去過", value: "\(stores.filter { $0.name != Tracker.unknownStore }.count) 家")
+                    Tile(label: "到訪天數", value: "\(visits) 天")
+                    Tile(label: "到訪門市", value: "\(stores.filter { $0.name != Tracker.unknownStore }.count) 家")
                     Tile(label: "最長連續", value: "\(longestStreak(days)) 天")
-                    Tile(label: "平均每次", value: visits > 0 ? duration(total / Double(visits)) : "—")
+                    Tile(label: "平均每天", value: visits > 0 ? duration(total / Double(visits)) : "—")
                 }
 
                 HeatmapGrid(period: period, perDay: perDay, selected: $selected, caption: caption(for:))
@@ -61,7 +61,7 @@ struct StatsView: View {
                     switch breakdown {
                     case .stores:
                         BarList(rows: stores.map { BarRow(id: $0.name, label: $0.name, seconds: $0.seconds) },
-                                selected: store, empty: "這段期間還沒有紀錄。連上路易莎之後會開始計時。") { name in
+                                selected: store, empty: "這段期間沒有紀錄。連上路易莎 Wi-Fi 後會自動計時。") { name in
                             store = store == name ? nil : name
                         }
                     case .months:
@@ -87,12 +87,12 @@ struct StatsView: View {
     /// One line under the grid, like GitHub: the selected day's stores, or a hint.
     private func caption(for date: Date?) -> Text {
         guard let date else {
-            return Text("點一下格子看那天在哪一家，方向鍵可以移動").foregroundColor(.secondary)
+            return Text("點選格子，查看當天的門市與連線時間").foregroundColor(.secondary)
         }
         let stores = (tracker.usage[Tracker.dayKey.string(from: date)] ?? [:])
             .filter { $0.value > 0 }.sorted { $0.value > $1.value }
         let day = Text("\(dayLabel(date))（\(weekday(date))）").fontWeight(.semibold)
-        let detail = stores.isEmpty ? "沒去" : stores.map { "\($0.key) \(duration($0.value))" }.joined(separator: "・")
+        let detail = stores.isEmpty ? "無紀錄" : stores.map { "\($0.key) \(duration($0.value))" }.joined(separator: "・")
         return day + Text("　\(detail)")
     }
 
@@ -284,7 +284,7 @@ struct HeatmapGrid: View {
         if let date = hovered, let w = columns.firstIndex(where: { $0.contains(date) }),
            let d = columns[w].firstIndex(of: date) {
             let seconds = perDay[Tracker.dayKey.string(from: date)] ?? 0
-            let text = "\(dayLabel(date))（\(weekday(date))）\(seconds > 0 ? duration(seconds) : "沒去")"
+            let text = "\(dayLabel(date))（\(weekday(date))）\(seconds > 0 ? duration(seconds) : "無紀錄")"
             let x = Self.labelWidth + Self.gap + CGFloat(w) * (cell + Self.gap) + cell / 2
             let y = CGFloat(d) * (cell + Self.gap)
             Text(text)
@@ -424,7 +424,7 @@ struct MonthColumns: View {
                     Text(month.label).font(.caption).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
-                .help("\(month.label)：\(month.seconds > 0 ? duration(month.seconds) : "沒去")")
+                .help("\(month.label)：\(month.seconds > 0 ? duration(month.seconds) : "無紀錄")")
             }
         }
         .frame(height: 150, alignment: .bottom)

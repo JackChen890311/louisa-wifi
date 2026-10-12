@@ -4,12 +4,12 @@
 // @raycast.schemaVersion 1
 // @raycast.title Louisa Wi-Fi
 // @raycast.mode compact
-// @raycast.argument1 { "type": "text", "placeholder": "門市或地址，留空＝最近的", "optional": true }
+// @raycast.argument1 { "type": "text", "placeholder": "門市或地址（留空連最近門市）", "optional": true }
 
 // Optional parameters:
 // @raycast.icon ☕️
 // @raycast.packageName Louisa Wi-Fi
-// @raycast.description 連上任何一家路易莎的 Wi-Fi
+// @raycast.description 連上路易莎門市的 Wi-Fi
 
 // With the LouisaWiFi app installed, this hands the work to the app (it has
 // Location permission, knows the nearest store and remembers routers).
@@ -31,15 +31,15 @@ function run(argv) {
   const keyword = (argv[0] || '').trim()
   const appPath = findApp()
   const stores = loadStores(appPath)
-  if (!stores) return '❌ 讀不到門市資料（第一次使用需要網路）'
+  if (!stores) return '❌ 無法讀取門市資料（首次使用需要網路連線）'
 
   if (!keyword) {
-    if (!appPath) return '沒有安裝 LouisaWiFi app，請輸入門市名稱'
+    if (!appPath) return '尚未安裝 Louisa Wi-Fi，請輸入門市名稱或地址'
     return viaApp('louisawifi://nearest')
   }
 
   const store = pick(search(stores, keyword), keyword)
-  if (store === undefined) return `❌ 找不到「${keyword}」`
+  if (store === undefined) return `❌ 找不到符合「${keyword}」的門市`
   if (store === null) return '已取消'
 
   return appPath
@@ -87,7 +87,7 @@ function pick(matches, keyword) {
   se.activate()
   const choice = se.chooseFromList(labels, {
     withTitle: '路易莎 Wi-Fi',
-    withPrompt: `「${keyword}」有 ${matches.length} 家，選一家：`,
+    withPrompt: `找到 ${matches.length} 家符合「${keyword}」的門市，請選擇：`,
     defaultItems: [labels[0]],
   })
   return choice ? matches[labels.indexOf(choice[0])] : null
@@ -105,7 +105,7 @@ function viaApp(url) {
     const s = JSON.parse(read(STATUS))
     if (s.time >= start && s.state !== 'connecting') return (s.state === 'connected' ? '✅ ' : '⚠️ ') + s.message
   }
-  return '⚠️ 等太久了，請看 menu bar 的 ☕'
+  return '⚠️ 等待逾時，請從選單列的 ☕ 查看連線狀態'
 }
 
 function standalone(store) {
@@ -117,7 +117,7 @@ function standalone(store) {
     if (/could not find/i.test(out)) return '❌ 附近找不到路易莎 Wi-Fi'
     if (!out.trim() && online(10)) return `✅ 已連上：${store.name}`
   }
-  return `❌ ${store.name} 的密碼都不對`
+  return `❌ 無法連上${store.name}，請確認門市與密碼`
 }
 
 function online(seconds) {

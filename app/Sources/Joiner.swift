@@ -95,7 +95,7 @@ final class Joiner {
             // ssid() is nil until Location is authorized; then fall back to "is it online?".
             if let i = self.iface, self.associated(i) {
                 if i.ssid() == louisaSSID { return self.report(.connected(self.currentStore()), notify: true) }
-                if i.ssid() == nil && online() { return self.report(.failed("已經連上網路了，不切換"), notify: true) }
+                if i.ssid() == nil && online() { return self.report(.failed("目前已可上網，保留現有連線"), notify: true) }
             }
             self.report(.connecting(store.name))
             guard let i = self.iface, let nets = self.scan(i) else {
@@ -106,7 +106,7 @@ final class Joiner {
                 self.remember(nets, store: store.name, password: pw)
                 return self.report(.connected(store.name), notify: true)
             }
-            self.report(.failed("\(store.name) 的密碼都不對"), notify: true)
+            self.report(.failed("無法連上\(store.name)，請確認門市與密碼"), notify: true)
         }
     }
 
@@ -123,7 +123,7 @@ final class Joiner {
 
     private func runAuto(near here: CLLocation?, manual: Bool = false) {
         guard let i = iface, i.powerOn() else {
-            if manual { report(.failed("Wi-Fi 沒有開"), notify: true) }
+            if manual { report(.failed("請先開啟 Wi-Fi"), notify: true) }
             return
         }
         if !manual && Date() < quietUntil { return }
@@ -150,7 +150,7 @@ final class Joiner {
 
         guard !tries.isEmpty else {
             snoozed[key] = Date().addingTimeInterval(600)
-            let why = Locator.shared.authorized ? "不知道這是哪一家，請從選單選擇門市" : "需要定位權限才能自動找門市"
+            let why = Locator.shared.authorized ? "無法辨識門市，請從選單選擇" : "請允許定位，以自動尋找附近門市"
             return report(.failed(why), notify: true)
         }
 

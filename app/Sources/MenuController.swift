@@ -66,7 +66,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         menu.addItem(all)
         menu.addItem(.separator())
 
-        menu.addItem(action("統計…", #selector(showStats)))
+        menu.addItem(action("連線統計…", #selector(showStats)))
         menu.addItem(.separator())
 
         if !Locator.shared.authorized {
@@ -123,7 +123,7 @@ final class MenuController: NSObject, NSMenuDelegate {
             let host = NSHostingController(rootView: StatsView(tracker: Tracker.shared))
             host.sizingOptions = [.preferredContentSize]
             let window = NSWindow(contentViewController: host)
-            window.title = "路易莎時光"
+            window.title = "連線統計"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.center()

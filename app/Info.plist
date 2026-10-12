@@ -11,8 +11,8 @@
 	<key>CFBundleVersion</key><string>1</string>
 	<key>LSMinimumSystemVersion</key><string>13.0</string>
 	<key>LSUIElement</key><true/>
-	<key>NSLocationUsageDescription</key><string>用你的位置找出最近的路易莎門市，並辨認你連上的是哪一家。</string>
-	<key>NSLocationWhenInUseUsageDescription</key><string>用你的位置找出最近的路易莎門市，並辨認你連上的是哪一家。</string>
+	<key>NSLocationUsageDescription</key><string>需要定位權限，才能尋找附近的路易莎門市，並辨識目前連線的 Wi-Fi。</string>
+	<key>NSLocationWhenInUseUsageDescription</key><string>需要定位權限，才能尋找附近的路易莎門市，並辨識目前連線的 Wi-Fi。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

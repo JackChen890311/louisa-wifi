@@ -30,11 +30,11 @@ final class Updater {
                 }
                 let version = release.tag_name.hasPrefix("v") ? String(release.tag_name.dropFirst()) : release.tag_name
                 guard version.compare(self.current, options: .numeric) == .orderedDescending else {
-                    if manual { Notifier.post("已經是最新版本（\(self.current)）") }
+                    if manual { Notifier.post("目前已是最新版本（\(self.current)）") }
                     return
                 }
                 if self.available?.version != version || manual {
-                    Notifier.post("有新版本 \(version)，從 ☕ 選「更新」")
+                    Notifier.post("有新版本 \(version)，請從 ☕ 選單選擇「更新到 \(version)」")
                 }
                 self.available = (version, zip)
                 self.onChange?()
