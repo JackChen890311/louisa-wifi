@@ -2,20 +2,30 @@ import AppKit
 import SwiftUI
 
 /// "路易莎時光", modeled on GitHub's contribution graph: pick a year on the right,
-/// click a day (or use the arrow keys) to see where you were.
+/// click a day (or use the arrow keys) to see where you were, and break the time
+/// down by store, month or year. Clicking a store filters everything to it.
 struct StatsView: View {
     @ObservedObject var tracker: Tracker
     @State private var range: StatsRange = .pastYear
     @State private var selected: Date?
+    @State private var store: String?
+    @State private var breakdown: Breakdown = .stores
+
+    enum Breakdown: String, CaseIterable { case stores = "門市", months = "月份", years = "年份" }
 
     private var years: [Int] {
         let current = Calendar.mondayFirst.component(.year, from: Date())
         return Array(Set(tracker.usage.keys.compactMap { Int($0.prefix(4)) } + [current])).sorted(by: >)
     }
 
+    /// Seconds per day, limited to the selected store if any.
+    private var perDay: [String: Double] {
+        tracker.usage.mapValues { stores in store.map { stores[$0] ?? 0 } ?? stores.values.reduce(0, +) }
+    }
+
     var body: some View {
         let period = Period(range)
-        let perDay = tracker.usage.mapValues { $0.values.reduce(0, +) }
+        let perDay = perDay
         let days = period.days.map { perDay[Tracker.dayKey.string(from: $0)] ?? 0 }
         let total = days.reduce(0, +)
         let visits = days.filter { $0 > 0 }.count
@@ -23,7 +33,13 @@ struct StatsView: View {
 
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading, spacing: 22) {
-                Text("\(range.heading)在路易莎待了 \(duration(total))").font(.title3.weight(.semibold))
+                HStack(spacing: 10) {
+                    Text("\(store.map { "\($0)：" } ?? "")\(range.heading)在路易莎待了 \(duration(total))")
+                        .font(.title3.weight(.semibold))
+                    if store != nil {
+                        Button("顯示全部門市") { store = nil }.controlSize(.small)
+                    }
+                }
 
                 HStack(spacing: 12) {
                     Tile(label: "去了", value: "\(visits) 天")
@@ -34,7 +50,31 @@ struct StatsView: View {
 
                 HeatmapGrid(period: period, perDay: perDay, selected: $selected)
                 DayDetail(date: selected, stores: selected.flatMap { tracker.usage[Tracker.dayKey.string(from: $0)] } ?? [:])
-                TopStores(stores: Array(stores.prefix(5)))
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("", selection: $breakdown) {
+                        ForEach(Breakdown.allCases, id: \.self) { Text($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 240)
+
+                    switch breakdown {
+                    case .stores:
+                        BarList(rows: stores.map { BarRow(id: $0.name, label: $0.name, seconds: $0.seconds) },
+                                selected: store, empty: "這段期間還沒有紀錄。連上路易莎之後會開始計時。") { name in
+                            store = store == name ? nil : name
+                        }
+                    case .months:
+                        MonthColumns(months: monthTotals(period, perDay))
+                    case .years:
+                        BarList(rows: yearTotals(perDay).map { BarRow(id: "\($0.year)", label: "\($0.year) 年", seconds: $0.seconds) },
+                                selected: selectedYearID,
+                                empty: "還沒有紀錄。") { id in
+                            if let y = Int(id) { range = .year(y) }
+                        }
+                    }
+                }
             }
             .frame(width: HeatmapGrid.width)
 
@@ -45,12 +85,35 @@ struct StatsView: View {
         .onChange(of: range) { _ in selected = nil }
     }
 
+    private var selectedYearID: String? {
+        if case .year(let y) = range { return "\(y)" }
+        return nil
+    }
+
     private func storeTotals(_ period: Period) -> [(name: String, seconds: Double)] {
         var totals: [String: Double] = [:]
         for day in period.days {
             for (name, s) in tracker.usage[Tracker.dayKey.string(from: day)] ?? [:] { totals[name, default: 0] += s }
         }
         return totals.map { (name: $0.key, seconds: $0.value) }.sorted { $0.seconds > $1.seconds }
+    }
+
+    /// The 12 months of the selected year, or the last 12 months.
+    private func monthTotals(_ period: Period, _ perDay: [String: Double]) -> [(label: String, seconds: Double)] {
+        let cal = Calendar.mondayFirst
+        let lastMonth = cal.date(from: cal.dateComponents([.year, .month], from: period.end))!
+        return (0..<12).reversed().map { back in
+            let month = cal.date(byAdding: .month, value: -back, to: lastMonth)!
+            let prefix = String(Tracker.dayKey.string(from: month).prefix(7))
+            let seconds = perDay.filter { $0.key.hasPrefix(prefix) }.values.reduce(0, +)
+            return (label: "\(cal.component(.month, from: month))月", seconds: seconds)
+        }
+    }
+
+    private func yearTotals(_ perDay: [String: Double]) -> [(year: Int, seconds: Double)] {
+        var totals: [Int: Double] = [:]
+        for (day, s) in perDay where s > 0 { if let y = Int(day.prefix(4)) { totals[y, default: 0] += s } }
+        return totals.map { (year: $0.key, seconds: $0.value) }.sorted { $0.year > $1.year }
     }
 
     private func longestStreak(_ days: [Double]) -> Int {
@@ -86,7 +149,8 @@ enum StatsRange: Hashable {
 
 /// The days a range covers and the Monday-aligned grid that shows them.
 struct Period {
-    let first: Date      // first day counted
+    let first: Date      // first day of the range
+    let end: Date        // last day of the range (Dec 31 for a year)
     let last: Date       // last day counted, never after today
     let gridStart: Date  // Monday on or before `first`
     let weeks: Int
@@ -94,7 +158,6 @@ struct Period {
     init(_ range: StatsRange) {
         let cal = Calendar.mondayFirst
         let today = cal.startOfDay(for: Date())
-        let end: Date
         switch range {
         case .pastYear:
             first = cal.date(byAdding: .day, value: -364, to: today)!
@@ -110,6 +173,7 @@ struct Period {
     }
 
     func contains(_ date: Date) -> Bool { date >= first && date <= last }
+    func shows(_ date: Date) -> Bool { date >= first && date <= end }
 
     var days: [Date] {
         var out: [Date] = []
@@ -182,7 +246,7 @@ struct HeatmapGrid: View {
         let inPeriod = period.contains(date)
         let seconds = perDay[Tracker.dayKey.string(from: date)] ?? 0
         RoundedRectangle(cornerRadius: 2)
-            .fill(inPeriod ? Palette.level(seconds) : Color.clear)
+            .fill(inPeriod ? Palette.level(seconds) : period.shows(date) ? Palette.level(0).opacity(0.5) : Color.clear)
             .overlay(
                 RoundedRectangle(cornerRadius: 2)
                     .strokeBorder(Color.primary, lineWidth: 1.5)
@@ -281,29 +345,71 @@ struct DayDetail: View {
     }
 }
 
-struct TopStores: View {
-    let stores: [(name: String, seconds: Double)]
+struct BarRow: Identifiable {
+    let id: String
+    let label: String
+    let seconds: Double
+}
+
+/// Horizontal bars, longest first. Rows are clickable.
+struct BarList: View {
+    let rows: [BarRow]
+    let selected: String?
+    let empty: String
+    let onTap: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("最常去的門市").font(.headline)
-            if stores.isEmpty {
-                Text("這段期間還沒有紀錄。連上路易莎之後會開始計時。").foregroundStyle(.secondary)
-            }
-            ForEach(stores, id: \.name) { row in
-                HStack(spacing: 10) {
-                    Text(row.name).frame(width: 140, alignment: .leading).lineLimit(1)
-                    GeometryReader { geo in
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Palette.bar)
-                            .frame(width: max(2, geo.size.width * row.seconds / stores[0].seconds))
+        if rows.isEmpty {
+            Text(empty).foregroundStyle(.secondary)
+        } else {
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(rows) { row in
+                        HStack(spacing: 10) {
+                            Text(row.label).frame(width: 140, alignment: .leading).lineLimit(1)
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Palette.bar)
+                                    .frame(width: max(2, geo.size.width * row.seconds / rows[0].seconds))
+                            }
+                            .frame(height: 14)
+                            Text(duration(row.seconds)).foregroundStyle(.secondary).monospacedDigit()
+                                .frame(width: 100, alignment: .trailing)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(selected == row.id ? Color.accentColor.opacity(0.15) : Color.clear))
+                        .contentShape(Rectangle())
+                        .onTapGesture { onTap(row.id) }
                     }
-                    .frame(height: 14)
-                    Text(duration(row.seconds)).foregroundStyle(.secondary).monospacedDigit()
-                        .frame(width: 100, alignment: .trailing)
                 }
             }
+            .frame(height: min(CGFloat(rows.count) * 26, 182))
         }
+    }
+}
+
+/// Twelve monthly columns; only the busiest month is labeled, hover for the rest.
+struct MonthColumns: View {
+    let months: [(label: String, seconds: Double)]
+
+    var body: some View {
+        let peak = months.map { $0.seconds }.max() ?? 0
+        HStack(alignment: .bottom, spacing: 0) {
+            ForEach(Array(months.enumerated()), id: \.offset) { _, month in
+                VStack(spacing: 6) {
+                    Text(month.seconds == peak && peak > 0 ? duration(month.seconds) : " ")
+                        .font(.caption2).foregroundStyle(.secondary).fixedSize()
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(month.seconds > 0 ? Palette.bar : Palette.level(0))
+                        .frame(width: 28, height: peak > 0 ? max(2, 110 * month.seconds / peak) : 2)
+                    Text(month.label).font(.caption).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(month.label)：\(month.seconds > 0 ? duration(month.seconds) : "沒去")")
+            }
+        }
+        .frame(height: 150, alignment: .bottom)
     }
 }
 
