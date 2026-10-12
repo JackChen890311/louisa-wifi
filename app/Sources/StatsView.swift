@@ -205,6 +205,7 @@ struct HeatmapGrid: View {
     @Binding var selected: Date?
     let caption: (Date?) -> Text
     @State private var hovered: Date?
+    @State private var tipSize = CGSize(width: 160, height: 22)
 
     static let width: CGFloat = 776
     static let gap: CGFloat = 3
@@ -243,7 +244,7 @@ struct HeatmapGrid: View {
                     }
                 }
             }
-            .overlay(alignment: .topLeading) { tooltip(columns) }
+            .overlay(alignment: .topLeading) { GeometryReader { _ in tooltip(columns) } }
             HStack(spacing: Self.gap) {
                 caption(hovered ?? selected).font(.callout).lineLimit(1)
                 Spacer(minLength: 16)
@@ -290,8 +291,11 @@ struct HeatmapGrid: View {
                 .font(.caption).foregroundStyle(.white).fixedSize()
                 .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(RoundedRectangle(cornerRadius: 5).fill(Color.black.opacity(0.85)))
-                .alignmentGuide(.leading) { $0.width / 2 - min(max(x, $0.width / 2), Self.width - $0.width / 2) }
-                .alignmentGuide(.top) { $0.height + 6 - y }
+                .background(GeometryReader { Color.clear.preference(key: TipSize.self, value: $0.size) })
+                .onPreferenceChange(TipSize.self) { tipSize = $0 }
+                // Centered above the cell, but kept inside the grid's width.
+                .position(x: min(max(x, tipSize.width / 2), Self.width - tipSize.width / 2),
+                          y: y - tipSize.height / 2 - 6)
                 .allowsHitTesting(false)
         }
     }
@@ -313,6 +317,11 @@ struct HeatmapGrid: View {
         }
         return labels
     }
+}
+
+private struct TipSize: PreferenceKey {
+    static let defaultValue = CGSize.zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
 }
 
 /// Arrow keys move the selected day like GitHub's graph: ↑↓ by day, ←→ by week.
