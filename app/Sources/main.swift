@@ -26,7 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CWEventDelegate {
         Joiner.shared.autoConnect()
     }
 
-    /// louisawifi://connect?store=延平門市, louisawifi://nearest, louisawifi://stats, louisawifi://update
+    /// Opening the app while it's already running shows the menu bar icon again.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        menu.showIcon()
+        return true
+    }
+
+    /// louisawifi://connect?store=延平門市, louisawifi://nearest, louisawifi://stats, louisawifi://update, louisawifi://show
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
@@ -39,6 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CWEventDelegate {
                 Joiner.shared.connectNearest()
             case "stats":
                 menu.showStats()
+            case "show":
+                menu.showIcon()
             case "update":
                 if Updater.shared.available == nil { Updater.shared.check(manual: true) } else { Updater.shared.install() }
             default:

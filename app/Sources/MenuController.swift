@@ -13,6 +13,13 @@ final class MenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
         item.menu = menu
         update(Joiner.shared.currentStatus())
+        item.isVisible = !UserDefaults.standard.bool(forKey: "hideMenuBarIcon")
+    }
+
+    /// Opening the app again (or louisawifi://show) brings a hidden icon back.
+    func showIcon() {
+        UserDefaults.standard.set(false, forKey: "hideMenuBarIcon")
+        item.isVisible = true
     }
 
     func update(_ status: Status) {
@@ -78,6 +85,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         let onlyKnownItem = action("只顯示連過的門市", #selector(toggleOnlyKnown))
         onlyKnownItem.state = onlyKnown ? .on : .off
         menu.addItem(onlyKnownItem)
+        menu.addItem(action("不在選單列顯示…", #selector(hideIcon)))
         let login = action("登入時開啟", #selector(toggleLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -148,6 +156,18 @@ final class MenuController: NSObject, NSMenuDelegate {
 
     @objc private func toggleOnlyKnown() {
         UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "onlyKnown"), forKey: "onlyKnown")
+    }
+
+    @objc private func hideIcon() {
+        let alert = NSAlert()
+        alert.messageText = "不在選單列顯示 ☕？"
+        alert.informativeText = "Louisa Wi-Fi 會繼續在背景自動連線、記錄時間。\n\n想再顯示時，到「應用程式」再打開一次 LouisaWiFi 就會出現。"
+        alert.addButton(withTitle: "隱藏")
+        alert.addButton(withTitle: "取消")
+        if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        UserDefaults.standard.set(true, forKey: "hideMenuBarIcon")
+        item.isVisible = false
     }
 
     @objc private func toggleLogin() {

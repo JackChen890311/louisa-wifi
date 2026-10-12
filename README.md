@@ -78,6 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/madeyexz/louisa-wifi/main/install.s
 - 從「附近門市」或「所有門市」手動選店
 - 打開「連線統計…」
 - 開關「自動連線」「只顯示連過的門市」「登入時開啟」
+- 選「不在選單列顯示…」把 ☕ 藏起來（app 仍會在背景自動連線）
 - 檢查更新
 
 ## 它是怎麼運作的
@@ -134,9 +135,15 @@ Mac 沒有 GPS，沒有網路時位置可能不準，所以第一次去某家店
 </details>
 
 <details>
+<summary>把 ☕ 藏起來之後，要怎麼叫回來？</summary>
+
+到「應用程式」（或用 Spotlight 搜尋 LouisaWiFi）再打開一次 app，☕ 就會回到選單列。藏起來的期間，app 還是會照常自動連線、記錄時間。
+</details>
+
+<details>
 <summary>怎麼移除？</summary>
 
-1. 點 ☕ → 結束。
+1. 點 ☕ → 結束。（如果 ☕ 被藏起來了，先照上一題把它叫回來。）
 2. 把「應用程式」裡的 **LouisaWiFi** 丟到垃圾桶。
 3. （選擇性）刪除紀錄：在 Finder 按 `⌘⇧G`，輸入 `~/Library/Application Support/LouisaWiFi`，刪掉這個資料夾。
 </details>
