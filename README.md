@@ -5,8 +5,8 @@
 <p align="center">走進任何一家路易莎，Mac 自動連上 Wi-Fi。<br>不用問密碼，也不用一直「忘記這個網路」。</p>
 
 <p align="center">
-  <a href="https://github.com/madeyexz/louisa-wifi/releases/latest"><b>下載最新版</b></a> ・
-  <a href="#安裝只要-3-步">安裝教學</a> ・
+  <a href="https://github.com/madeyexz/louisa-wifi/releases/latest/download/LouisaWiFi.zip"><b>⬇️ 下載 Louisa Wi-Fi</b></a> ・
+  <a href="#安裝">安裝教學</a> ・
   <a href="#常見問題">常見問題</a>
 </p>
 
@@ -30,36 +30,42 @@ Louisa Wi-Fi 會認出你在哪一家店，自動換上那家店的密碼。全�
 
 <p align="center"><img src="docs/screenshot-stats-month.png" width="700" alt="連線統計：每月時數"><br><sub>連線統計：點方格看當天去了哪家，下方可以切換門市、月份、年份。</sub></p>
 
-## 安裝（只要 3 步）
+## 安裝
 
 需要 macOS 13（Ventura）或更新的版本。
 
-**1. 打開「終端機」**
+**1. 下載**
 
-按 `⌘ 空白鍵` 開啟 Spotlight，輸入「終端機」（或 Terminal），按 Enter。
+👉 **[點這裡下載 Louisa Wi-Fi](https://github.com/madeyexz/louisa-wifi/releases/latest/download/LouisaWiFi.zip)**
 
-**2. 貼上這一行，按 Enter**
+**2. 放進「應用程式」**
+
+打開「下載項目」資料夾，把 **LouisaWiFi** 拖進「應用程式」。如果看到的是 `LouisaWiFi.zip`，先點兩下解壓縮。
+
+**3. 第一次打開**
+
+到「應用程式」點兩下 **LouisaWiFi**。macOS 會跳出「無法打開」或「無法驗證開發者」的警告，這是因為 app 沒有付費向 Apple 註冊，不是病毒：
+
+1. 先按「完成」關掉警告。
+2. 打開「系統設定 → 隱私權與安全性」，捲到最下面。
+3. 會看到「已阻擋 LouisaWiFi」，按旁邊的「**仍要打開**」（有些版本叫「強制打開」），輸入 Mac 的密碼。
+
+只有第一次需要這樣做。
+
+**4. 允許定位**
+
+畫面右上角的選單列會出現 ☕，並跳出詢問是否允許使用你的位置，請按「**允許**」。
+
+> 如果沒有跳出詢問，或不小心按了拒絕：打開「系統設定 → 隱私權與安全性 → 定位服務」，把 **LouisaWiFi** 打開。
+
+完成！建議從 ☕ 選單勾選「**登入時開啟**」，這樣每次開機都會自動執行。
+
+<details>
+<summary>熟悉終端機？一行指令安裝（可以跳過第 3 步的安全性警告）</summary>
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/madeyexz/louisa-wifi/main/install.sh | bash
 ```
-
-看到「已安裝至 …」就完成了。
-
-**3. 允許定位**
-
-畫面右上角的選單列會出現 ☕，並跳出「Louisa Wi-Fi 想要使用你的位置」，請按**允許**。
-
-> 如果沒有跳出詢問，或不小心按了拒絕：打開「系統設定 → 隱私權與安全性 → 定位服務」，把 **LouisaWiFi** 打開。
-
-之後建議從 ☕ 選單勾選「**登入時開啟**」，這樣每次開機都會自動執行。
-
-<details>
-<summary>不想用終端機？也可以手動下載</summary>
-
-1. 到 [Releases](https://github.com/madeyexz/louisa-wifi/releases/latest) 下載 `LouisaWiFi.zip`。
-2. 打開壓縮檔，把 **LouisaWiFi** 拖進「應用程式」資料夾。
-3. 第一次打開時，macOS 可能會說「無法驗證開發者」。這是因為 app 沒有付費向 Apple 註冊，不是病毒。請到「系統設定 → 隱私權與安全性」，往下捲，按「**仍要打開**」。
 </details>
 
 ## 怎麼用
@@ -78,16 +84,16 @@ curl -fsSL https://raw.githubusercontent.com/madeyexz/louisa-wifi/main/install.s
 
 ```mermaid
 flowchart TD
-    A["Wi-Fi 狀態改變、每 15 秒檢查，<br/>或你從選單選了門市"] --> B{"已經可以上網？"}
-    B -- 是 --> Z["不做任何事<br/>不會中斷你正在用的網路"]
-    B -- 否 --> C{"附近有 LouisaCoffee？"}
-    C -- 沒有 --> Z2["結束"]
-    C -- 有 --> D{"這台路由器以前連過？"}
-    D -- 是 --> E["用上次成功的密碼<br/>大約 1 秒連上"]
-    D -- 否 --> F["用 Mac 的位置找出最近 3 家門市<br/>依序試它們的電話號碼"]
-    F -- 成功 --> G["記住：這台路由器 = 這家門市 + 這組密碼"]
-    F -- 都不對 --> I["通知你從 ☕ 選單選門市<br/>選過一次就會記住"]
-    E --> H["連上了 ✅<br/>開始記錄連線時間"]
+    A["Wi-Fi 狀態改變、每 15 秒檢查<br/>或你從選單選了門市"] --> B{"已經可以上網？"}
+    B -->|是| Z["不做任何事<br/>不會中斷你正在用的網路"]
+    B -->|否| C{"附近有 LouisaCoffee？"}
+    C -->|沒有| Z2["結束"]
+    C -->|有| D{"這台路由器以前連過？"}
+    D -->|是| E["用上次成功的密碼<br/>大約 1 秒連上"]
+    D -->|否| F["用 Mac 的位置找出最近 3 家門市<br/>依序試它們的電話號碼"]
+    F -->|成功| G["記住這台路由器是哪家門市、用哪組密碼"]
+    F -->|都不對| I["通知你從選單選門市<br/>選過一次就會記住"]
+    E --> H["連上了，開始記錄連線時間"]
     G --> H
 ```
 
