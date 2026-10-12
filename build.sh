@@ -24,6 +24,16 @@ if [ -n "${VERSION:-}" ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 fi
 cp data/stores.json "$APP/Contents/Resources/"
+
+# App icon: app/AppIcon.png (1024×1024) → AppIcon.icns
+ICONSET=build/AppIcon.iconset
+mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+  sips -z $size $size app/AppIcon.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $((size * 2)) $((size * 2)) app/AppIcon.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONSET"
 codesign --force --sign - "$APP"
 
 ditto -c -k --keepParent "$APP" build/LouisaWiFi.zip

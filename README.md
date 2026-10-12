@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/icon.png" width="128" alt="Louisa Wi-Fi 圖示"></p>
+
 # Louisa Wi-Fi ☕
 
 自動連上全台任何一家路易莎咖啡的 Wi-Fi。
