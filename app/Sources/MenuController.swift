@@ -124,7 +124,7 @@ final class MenuController: NSObject, NSMenuDelegate {
             host.sizingOptions = [.preferredContentSize]
             let window = NSWindow(contentViewController: host)
             window.title = "連線統計"
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             window.center()
             statsWindow = window
