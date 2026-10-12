@@ -48,8 +48,7 @@ struct StatsView: View {
                     Tile(label: "平均每次", value: visits > 0 ? duration(total / Double(visits)) : "—")
                 }
 
-                HeatmapGrid(period: period, perDay: perDay, selected: $selected)
-                DayDetail(date: selected, stores: selected.flatMap { tracker.usage[Tracker.dayKey.string(from: $0)] } ?? [:])
+                HeatmapGrid(period: period, perDay: perDay, selected: $selected, caption: caption(for: selected))
 
                 VStack(alignment: .leading, spacing: 12) {
                     Picker("", selection: $breakdown) {
@@ -57,7 +56,7 @@ struct StatsView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(width: 240)
+                    .fixedSize()
 
                     switch breakdown {
                     case .stores:
@@ -83,6 +82,18 @@ struct StatsView: View {
         .padding(24)
         .modifier(ArrowKeys(selected: $selected, period: period))
         .onChange(of: range) { _ in selected = nil }
+    }
+
+    /// One line under the grid, like GitHub: the selected day's stores, or a hint.
+    private func caption(for date: Date?) -> Text {
+        guard let date else {
+            return Text("點一下格子看那天在哪一家，方向鍵可以移動").foregroundColor(.secondary)
+        }
+        let stores = (tracker.usage[Tracker.dayKey.string(from: date)] ?? [:])
+            .filter { $0.value > 0 }.sorted { $0.value > $1.value }
+        let day = Text("\(dayLabel(date))（\(weekday(date))）").fontWeight(.semibold)
+        let detail = stores.isEmpty ? "沒去" : stores.map { "\($0.key) \(duration($0.value))" }.joined(separator: "・")
+        return day + Text("　\(detail)")
     }
 
     private var selectedYearID: String? {
@@ -152,8 +163,9 @@ struct Period {
     let first: Date      // first day of the range
     let end: Date        // last day of the range (Dec 31 for a year)
     let last: Date       // last day counted, never after today
-    let gridStart: Date  // Monday on or before `first`
-    let weeks: Int
+    let gridStart: Date  // Monday of the first column
+    static let weeks = 54  // a year never spans more than 54 weeks; fixed so the grid width never changes
+    var weeks: Int { Self.weeks }
 
     init(_ range: StatsRange) {
         let cal = Calendar.mondayFirst
@@ -167,9 +179,11 @@ struct Period {
             end = cal.date(from: DateComponents(year: y, month: 12, day: 31))!
         }
         last = min(end, today)
-        gridStart = cal.dateInterval(of: .weekOfYear, for: first)!.start
         let lastMonday = cal.dateInterval(of: .weekOfYear, for: end)!.start
-        weeks = cal.dateComponents([.day], from: gridStart, to: lastMonday).day! / 7 + 1
+        switch range {
+        case .pastYear: gridStart = cal.date(byAdding: .day, value: -7 * (Self.weeks - 1), to: lastMonday)!
+        case .year: gridStart = cal.dateInterval(of: .weekOfYear, for: first)!.start
+        }
     }
 
     func contains(_ date: Date) -> Bool { date >= first && date <= last }
@@ -192,11 +206,12 @@ struct HeatmapGrid: View {
     let period: Period
     let perDay: [String: Double]
     @Binding var selected: Date?
+    let caption: Text
 
     static let cell: CGFloat = 11
     static let gap: CGFloat = 3
     static let labelWidth: CGFloat = 20
-    static let width = labelWidth + 54 * (cell + gap)  // a year never spans more than 54 weeks
+    static let width = labelWidth + CGFloat(Period.weeks) * (cell + gap)
 
     var body: some View {
         let cal = Calendar.mondayFirst
@@ -229,8 +244,8 @@ struct HeatmapGrid: View {
                 }
             }
             HStack(spacing: Self.gap) {
-                Text("點一下格子看那天去了哪裡").font(.caption).foregroundStyle(.secondary)
-                Spacer()
+                caption.font(.callout).lineLimit(1)
+                Spacer(minLength: 16)
                 Text("少").font(.caption2).foregroundStyle(.secondary)
                 ForEach([0, 1, 1800, 3600, 7200] as [Double], id: \.self) {
                     RoundedRectangle(cornerRadius: 2).fill(Palette.level($0)).frame(width: Self.cell, height: Self.cell)
@@ -268,7 +283,7 @@ struct HeatmapGrid: View {
         var lastLabeled = -10
         var lastMonth = -1
         for (w, week) in columns.enumerated() {
-            guard let day = week.first(where: period.contains) else { continue }
+            guard let day = week.first(where: period.shows) else { continue }
             let month = cal.component(.month, from: day)
             if month != lastMonth && w - lastLabeled >= 3 {
                 labels[w] = "\(month)月"
@@ -313,37 +328,6 @@ struct ArrowKeys: ViewModifier {
 }
 
 // MARK: - Pieces
-
-struct DayDetail: View {
-    let date: Date?
-    let stores: [String: Double]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let date {
-                let rows = stores.sorted { $0.value > $1.value }
-                Text("\(dayLabel(date))（\(weekday(date))）· \(rows.isEmpty ? "沒去" : duration(stores.values.reduce(0, +)))")
-                    .font(.headline)
-                ForEach(rows, id: \.key) { row in
-                    HStack {
-                        Text(row.key)
-                        Spacer()
-                        Text(duration(row.value)).foregroundStyle(.secondary).monospacedDigit()
-                    }
-                }
-            } else {
-                Text("選一天看看那天在哪一家、待了多久。").foregroundStyle(.secondary)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
-    }
-
-    private func weekday(_ date: Date) -> String {
-        "星期" + ["日", "一", "二", "三", "四", "五", "六"][Calendar.mondayFirst.component(.weekday, from: date) - 1]
-    }
-}
 
 struct BarRow: Identifiable {
     let id: String
@@ -489,6 +473,10 @@ enum Palette {
                            blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
         })
     }
+}
+
+func weekday(_ date: Date) -> String {
+    "星期" + ["日", "一", "二", "三", "四", "五", "六"][Calendar.mondayFirst.component(.weekday, from: date) - 1]
 }
 
 func dayLabel(_ date: Date) -> String {
