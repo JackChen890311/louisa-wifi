@@ -5,7 +5,7 @@
 <p align="center">走進任何一家路易莎，Mac 自動連上 Wi-Fi。<br>不用問密碼，也不用一直「忘記這個網路」。</p>
 
 <p align="center">
-  <a href="https://github.com/madeyexz/louisa-wifi/releases/latest/download/LouisaWiFi.zip"><b>⬇️ 下載 Louisa Wi-Fi</b></a> ・
+  <a href="https://github.com/JackChen890311/louisa-wifi/releases/latest/download/LouisaWiFi.zip"><b>⬇️ 下載 Louisa Wi-Fi</b></a> ・
   <a href="#安裝">安裝教學</a> ・
   <a href="#常見問題">常見問題</a>
 </p>
@@ -37,7 +37,7 @@ Louisa Wi-Fi 會認出你在哪一家店，自動換上那家店的密碼。全�
 
 **1. 下載**
 
-👉 **[點這裡下載 Louisa Wi-Fi](https://github.com/madeyexz/louisa-wifi/releases/latest/download/LouisaWiFi.zip)**
+👉 **[點這裡下載 Louisa Wi-Fi](https://github.com/JackChen890311/louisa-wifi/releases/latest/download/LouisaWiFi.zip)**
 
 **2. 放進「應用程式」**
 
@@ -61,13 +61,7 @@ Louisa Wi-Fi 會認出你在哪一家店，自動換上那家店的密碼。全�
 
 完成！建議從 ☕ 選單勾選「**登入時開啟**」，這樣每次開機都會自動執行。
 
-<details>
-<summary>熟悉終端機？一行指令安裝（可以跳過第 3 步的安全性警告）</summary>
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/madeyexz/louisa-wifi/main/install.sh | bash
-```
-</details>
+> `install.sh` 已停用（全部註解），請直接從上面的 Releases 下載。
 
 ## 怎麼用
 
@@ -165,7 +159,7 @@ Mac 沒有 GPS，沒有網路時位置可能不準，所以第一次去某家店
 - 留空即可連線到最近的門市（需安裝 app）。
 - 已安裝 app 時，會透過 app 連線；未安裝時，則使用 `networksetup` 連線，所以只裝 Raycast 也能用。
 
-安裝方式：從 [Releases](https://github.com/madeyexz/louisa-wifi/releases/latest) 下載 `louisa-wifi.js`，放進一個資料夾，再到 Raycast → Settings → Extensions → Script Commands → Add Directories 加入那個資料夾。
+安裝方式：從 [Releases](https://github.com/JackChen890311/louisa-wifi/releases/latest) 下載 `louisa-wifi.js`，放進一個資料夾，再到 Raycast → Settings → Extensions → Script Commands → Add Directories 加入那個資料夾。
 
 ### 密碼規則
 
