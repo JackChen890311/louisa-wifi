@@ -3,23 +3,37 @@ import ServiceManagement
 import SwiftUI
 
 final class MenuController: NSObject, NSMenuDelegate {
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private var item: NSStatusItem!
+    private let menu = NSMenu()
     private var status: Status = .idle
     private var statsWindow: NSWindow?
 
     override init() {
         super.init()
-        let menu = NSMenu()
         menu.delegate = self
-        item.menu = menu
+        makeItem()
         update(Joiner.shared.currentStatus())
-        item.isVisible = !UserDefaults.standard.bool(forKey: "hideMenuBarIcon")
+        item.isVisible = false
+    }
+
+    /// macOS can drop a status item's window, so start over instead of only
+    /// setting `isVisible` back to true.
+    private func makeItem() {
+        if item != nil { NSStatusBar.system.removeStatusItem(item) }
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.menu = menu
+        update(status)
     }
 
     /// Opening the app again (or louisawifi://show) brings a hidden icon back.
     func showIcon() {
-        UserDefaults.standard.set(false, forKey: "hideMenuBarIcon")
+        makeItem()
         item.isVisible = true
+    }
+
+    /// Hidden until the app is opened again.
+    func hideIcon() {
+        item.isVisible = false
     }
 
     func update(_ status: Status) {
@@ -30,8 +44,8 @@ final class MenuController: NSObject, NSMenuDelegate {
         case .connecting: symbol = "ellipsis.circle"
         default: symbol = "cup.and.saucer"
         }
-        item.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "路易莎 Wi-Fi")
-        item.button?.image?.isTemplate = true
+        item?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "路易莎 Wi-Fi")
+        item?.button?.image?.isTemplate = true
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -86,7 +100,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         let onlyKnownItem = action("只顯示連過的門市", #selector(toggleOnlyKnown))
         onlyKnownItem.state = onlyKnown ? .on : .off
         menu.addItem(onlyKnownItem)
-        menu.addItem(action("不在選單列顯示…", #selector(hideIcon)))
+        menu.addItem(action("不在選單列顯示…", #selector(hideFromMenuBar)))
         let login = action("登入時開啟", #selector(toggleLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -219,7 +233,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "onlyKnown"), forKey: "onlyKnown")
     }
 
-    @objc private func hideIcon() {
+    @objc private func hideFromMenuBar() {
         let alert = NSAlert()
         alert.messageText = "不在選單列顯示 ☕？"
         alert.informativeText = "Louisa Wi-Fi 會繼續在背景自動連線、記錄時間。\n\n想再顯示時，到「應用程式」再打開一次 LouisaWiFi 就會出現。"
@@ -227,8 +241,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         alert.addButton(withTitle: "取消")
         if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        UserDefaults.standard.set(true, forKey: "hideMenuBarIcon")
-        item.isVisible = false
+        hideIcon()
     }
 
     @objc private func toggleLogin() {

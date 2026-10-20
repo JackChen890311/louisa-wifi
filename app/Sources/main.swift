@@ -3,10 +3,20 @@ import CoreWLAN
 
 final class AppDelegate: NSObject, NSApplicationDelegate, CWEventDelegate {
     private var menu: MenuController!
+    private var launchedAtLogin = false
+
+    /// Login items get 'logi' in the open-application event, so stay out of the
+    /// menu bar until the user opens the app themselves.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        let prop = event?.paramDescriptor(forKeyword: AEKeyword(0x70726474)) // 'prdt'
+        launchedAtLogin = prop?.enumCodeValue == OSType(0x6C6F6769) // 'logi'
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: ["autoConnect": true])
         menu = MenuController()
+        if !launchedAtLogin { menu.showIcon() }
         Joiner.shared.onStatus = { [weak self] in self?.menu.update($0) }
         Notifier.setUp()
         Tracker.shared.start()
@@ -47,6 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, CWEventDelegate {
                 menu.showStats()
             case "show":
                 menu.showIcon()
+            case "hide":
+                menu.hideIcon()
             case "update":
                 if Updater.shared.available == nil { Updater.shared.check(manual: true) } else { Updater.shared.install() }
             default:
