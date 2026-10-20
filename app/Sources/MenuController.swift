@@ -3,37 +3,50 @@ import ServiceManagement
 import SwiftUI
 
 final class MenuController: NSObject, NSMenuDelegate {
-    private var item: NSStatusItem!
+    private var item: NSStatusItem?
     private let menu = NSMenu()
     private var status: Status = .idle
     private var statsWindow: NSWindow?
+    private var wantsVisible = false
 
     override init() {
         super.init()
         menu.delegate = self
-        makeItem()
-        update(Joiner.shared.currentStatus())
-        item.isVisible = false
     }
 
-    /// macOS can drop a status item's window, so start over instead of only
-    /// setting `isVisible` back to true.
     private func makeItem() {
-        if item != nil { NSStatusBar.system.removeStatusItem(item) }
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.menu = menu
+        self.item = item
         update(status)
     }
 
-    /// Opening the app again (or louisawifi://show) brings a hidden icon back.
+    /// Opening the app (or louisawifi://show) creates a fresh icon. macOS
+    /// 26/27 does not bring an existing item back after `isVisible = false`,
+    /// so the hidden item is removed and rebuilt instead.
     func showIcon() {
-        makeItem()
-        item.isVisible = true
+        wantsVisible = true
+        if let item {
+            NSStatusBar.system.removeStatusItem(item)
+            self.item = nil
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self, self.wantsVisible, self.item == nil else { return }
+            self.makeItem()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                guard let self else { return }
+                debugLog("menu: shown=\(self.item != nil) frame=\(String(describing: self.item?.button?.window?.frame))")
+            }
+        }
     }
 
-    /// Hidden until the app is opened again.
+    /// Remove the icon until the app is opened again.
     func hideIcon() {
-        item.isVisible = false
+        wantsVisible = false
+        guard let item else { return }
+        NSStatusBar.system.removeStatusItem(item)
+        self.item = nil
+        debugLog("menu: hidden")
     }
 
     func update(_ status: Status) {
