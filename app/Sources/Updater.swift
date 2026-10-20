@@ -4,7 +4,7 @@ import Foundation
 /// Checks GitHub Releases for a newer version and installs it in place.
 final class Updater {
     static let shared = Updater()
-    static let repo = "madeyexz/louisa-wifi"
+    static let repo = "JackChen890311/louisa-wifi"
 
     /// Newer release, if any. Main thread only.
     private(set) var available: (version: String, zip: URL)?
@@ -66,7 +66,7 @@ final class Updater {
                 // Runs after we exit; child processes outlive the app.
                 let swap = Process()
                 swap.executableURL = URL(fileURLWithPath: "/bin/sh")
-                swap.arguments = ["-c", "sleep 1; rm -rf \"$1\" && mv \"$2\" \"$1\"; xattr -dr com.apple.quarantine \"$1\"; open \"$1\"",
+                swap.arguments = ["-c", "sleep 1; rm -rf \"$1\" && mv \"$2\" \"$1\"; open \"$1\"",
                                   "sh", target.path, fresh.path]
                 try swap.run()
                 debugLog("updating to \(version)")

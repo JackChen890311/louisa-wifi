@@ -1,9 +1,9 @@
 #!/bin/bash
 # Install the latest LouisaWiFi.app from GitHub Releases:
-#   curl -fsSL https://raw.githubusercontent.com/madeyexz/louisa-wifi/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/JackChen890311/louisa-wifi/main/install.sh | bash
 set -euo pipefail
 
-REPO=${REPO:-madeyexz/louisa-wifi}
+REPO=${REPO:-JackChen890311/louisa-wifi}
 DEST=/Applications
 [ -w "$DEST" ] || DEST="$HOME/Applications"
 mkdir -p "$DEST"
@@ -12,6 +12,8 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 echo "正在下載 Louisa Wi-Fi…"
 curl -fsSL "https://github.com/$REPO/releases/latest/download/LouisaWiFi.zip" -o "$tmp/LouisaWiFi.zip"
+curl -fsSL "https://github.com/$REPO/releases/latest/download/LouisaWiFi.zip.sha256" -o "$tmp/LouisaWiFi.zip.sha256"
+(cd "$tmp" && shasum -a 256 -c LouisaWiFi.zip.sha256)
 ditto -x -k "$tmp/LouisaWiFi.zip" "$tmp"
 
 pkill -x LouisaWiFi 2>/dev/null || true

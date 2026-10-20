@@ -88,6 +88,10 @@ def main():
         out.append({"name": s["name"], "address": s["address"], "phone": s["phone"],
                     "lat": round(s["lat"], 6), "lng": round(s["lng"], 6), "passwords": pw})
 
+    # A layout change on the site must not ship an empty store list.
+    if len(out) < 400:
+        sys.exit(f"only {len(out)} stores; the site layout probably changed")
+
     OUT.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     missing = sum(1 for s in out if not s["lat"])
     print(f"wrote {len(out)} stores to {OUT} ({missing} without coordinates)", file=sys.stderr)

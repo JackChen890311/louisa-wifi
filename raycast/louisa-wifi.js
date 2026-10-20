@@ -18,7 +18,7 @@
 ObjC.import('Foundation')
 ObjC.import('AppKit')
 
-const REPO = 'madeyexz/louisa-wifi'
+const REPO = 'JackChen890311/louisa-wifi'
 const SSID = 'LouisaCoffee'
 const HOME = $.NSHomeDirectory().js
 const STATUS = `${HOME}/Library/Application Support/LouisaWiFi/status.json`

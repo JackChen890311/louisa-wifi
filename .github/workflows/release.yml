@@ -18,10 +18,11 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ inputs.tag || github.ref }}
       - run: VERSION="${TAG#v}" ./build.sh
-      - run: gh release create "$TAG" build/LouisaWiFi.zip raycast/louisa-wifi.js --generate-notes
+      - run: (cd build && shasum -a 256 LouisaWiFi.zip > LouisaWiFi.zip.sha256)
+      - run: gh release create "$TAG" build/LouisaWiFi.zip build/LouisaWiFi.zip.sha256 raycast/louisa-wifi.js --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
