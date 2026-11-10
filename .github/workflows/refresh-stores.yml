@@ -22,8 +22,22 @@ jobs:
       - run: python3 scripts/fetch_stores.py
       - id: tag
         run: |
-          git diff --quiet data/stores.json && exit 0
-          last=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo v0.0.0)
+          set -euo pipefail
+          if git diff --quiet data/stores.json; then
+            echo "No store changes"
+            exit 0
+          fi
+          # Take the highest version tag, not `git describe`: several tags can point
+          # at the same commit and `describe` may return an older one, which made us
+          # try to create a tag that already exists.
+          git fetch --tags --force --quiet origin
+          last=$(
+            { git tag --list 'v*'; git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##'; } |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+              sort -V |
+              tail -n 1
+          ) || true
+          last=${last:-v0.0.0}
           IFS=. read -r major minor patch <<< "${last#v}"
           tag="v$major.$minor.$((patch + 1))"
           git config user.name "github-actions[bot]"
