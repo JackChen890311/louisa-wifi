@@ -10,42 +10,119 @@ on:
 permissions:
   contents: write
 
+# Never let two refreshes race: a scheduled run and a manual run (or a re-run of
+# an old run) would otherwise both build on the same stale commit, and the second
+# push is rejected as non-fast-forward. Queue them instead of cancelling.
+concurrency:
+  group: refresh-stores
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ steps.publish.outputs.tag }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
-      - run: python3 scripts/fetch_stores.py
-      - id: tag
+      - id: publish
+        name: Commit, tag and push
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git diff --quiet data/stores.json; then
-            echo "No store changes"
-            exit 0
-          fi
-          # Take the highest version tag, not `git describe`: several tags can point
-          # at the same commit and `describe` may return an older one, which made us
-          # try to create a tag that already exists.
-          git fetch --tags --force --quiet origin
-          last=$(
-            { git tag --list 'v*'; git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##'; } |
-              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
-              sort -V |
-              tail -n 1
-          ) || true
-          last=${last:-v0.0.0}
-          IFS=. read -r major minor patch <<< "${last#v}"
-          tag="v$major.$minor.$((patch + 1))"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Update store data"
-          git tag "$tag"
-          git push origin HEAD "$tag"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+          next_tag() {
+            local last major minor patch
+            # Take the highest version tag, not `git describe`: several tags can
+            # point at the same commit and `describe` may return an older one.
+            # Check the remote too, so a tag pushed by a concurrent or older run
+            # is never reused.
+            last=$(
+              { git tag --list 'v*'; git ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##'; } |
+                grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+                sort -V |
+                tail -n 1
+            ) || true
+            last=${last:-v0.0.0}
+            IFS=. read -r major minor patch <<< "${last#v}"
+            echo "v$major.$minor.$((patch + 1))"
+          }
+
+          # A run can succeed in pushing the tag and then fail while building the
+          # release (or its release job can be cancelled), leaving a tag with no
+          # Release. Publishing the newest tag again makes re-runs self-healing.
+          publish_missing_release() {
+            local latest rc=0
+            latest=$(
+              git tag --list 'v*' |
+                grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+                sort -V |
+                tail -n 1
+            ) || true
+            if [ -z "$latest" ]; then
+              echo "No store changes"
+              return 0
+            fi
+            # gh exits 1 when the release does not exist; anything else (auth,
+            # network, missing gh) is a real error and must not silently turn
+            # every weekly run into a release.
+            gh release view "$latest" >/dev/null 2>&1 || rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "No store changes"
+            elif [ "$rc" -eq 1 ]; then
+              echo "Tag $latest has no published release; rebuilding it"
+              echo "tag=$latest" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error::gh release view $latest failed (exit $rc)"
+              exit 1
+            fi
+          }
+
+          for attempt in 1 2 3; do
+            # Scheduled/manual runs are queued at whatever SHA was current then,
+            # and actions/checkout uses that SHA. Always start from the current
+            # tip of main so the push is a fast-forward.
+            git fetch --force --tags origin '+refs/heads/*:refs/remotes/origin/*'
+            git reset --hard origin/main
+
+            python3 scripts/fetch_stores.py
+
+            if git diff --quiet -- data/stores.json; then
+              publish_missing_release
+              exit 0
+            fi
+
+            git add data/stores.json
+            git commit -m "Update store data"
+
+            tag=$(next_tag)
+            if git show-ref --verify --quiet "refs/tags/$tag"; then
+              echo "Tag $tag already exists; retrying from the new tip"
+              continue
+            fi
+            git tag "$tag"
+
+            # Push the commit and the tag atomically: either both land or neither
+            # does. Previously the tag was published even when the branch push was
+            # rejected, which left tags for commits that were never on main.
+            if git push --atomic origin HEAD:main "refs/tags/$tag"; then
+              echo "tag=$tag" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Push rejected (main moved while we were scraping); retrying"
+            git tag -d "$tag" >/dev/null
+            git reset --hard origin/main
+            sleep $((attempt * 5))
+          done
+
+          echo "::error::Could not push store data after 3 attempts"
+          exit 1
 
   release:
     needs: refresh

@@ -199,7 +199,7 @@ Mac 沒有 GPS，沒有網路時位置可能不準，所以第一次去某家店
 open build/LouisaWiFi.app
 ```
 
-將 `v*` 標籤推送到 GitHub 後，GitHub Actions 就會編譯並發布 Release。
+將 `v*` 標籤推送到 GitHub 後，GitHub Actions 就會編譯並發布 Release。如果 Release 建置失敗（例如 Actions 被取消或建置出錯），到 Actions → Release → Run workflow 填入該標籤即可重新發布；下次抓取門市資料時，也會自動補發最新標籤的 Release。
 
 ### 隱私
 
